@@ -10,6 +10,10 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get('/', (req, res) => {
+  res.json({ status: 'Adet server is running!' });
+});
+
 app.post('/chat', async (req, res) => {
   const { message, habits } = req.body;
 
