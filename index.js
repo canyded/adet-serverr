@@ -1,21 +1,14 @@
-const express = require('express');
-const app = express();
-app.use(express.json());
-
-// Разрешаем запросы с мобильного приложения
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
-  next();
-});
-
-app.get('/', (req, res) => {
-  res.json({ status: 'Adet server is running!' });
-});
-
 app.post('/chat', async (req, res) => {
-  const { message, habits } = req.body;
+  const { message, userName, habits } = req.body;
+
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  const habitsFormatted = habits.map(h => ({
+    name: h.name,
+    days: h.days_of_week.map(d => dayNames[d]).join(', '),  // [0,1,2] → "Mon, Tue, Wed"
+    streak: h.streak ?? 0,
+    target: h.target_count ?? 1
+  }));
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -27,9 +20,13 @@ app.post('/chat', async (req, res) => {
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1000,
-      system: `Ты AI-ассистент в приложении Adet для трекинга привычек. 
-Привычки пользователя: ${JSON.stringify(habits)}.
-Отвечай по-русски, коротко и поддерживающе.`,
+      system: `Ты AI Coach в приложении Adet для трекинга привычек.
+Имя пользователя: ${userName ?? 'пользователь'}.
+Привычки:
+${habitsFormatted.map(h => `- ${h.name}: ${h.days}, streak ${h.streak} дней`).join('\n')}
+
+Отвечай на том языке на котором пишет пользователь.
+Будь конкретным, ссылайся на реальные привычки. Коротко, 2-3 предложения.`,
       messages: [{ role: 'user', content: message }]
     })
   });
@@ -37,5 +34,3 @@ app.post('/chat', async (req, res) => {
   const data = await response.json();
   res.json({ reply: data.content[0].text });
 });
-
-app.listen(process.env.PORT || 3000);
